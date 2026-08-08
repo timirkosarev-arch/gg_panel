@@ -509,6 +509,38 @@ table.activity tr:hover td { background: rgba(182,85,31,0.04); }
   gap: 10px;
 }
 
+.mkey-name-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+
+.mkey-name-input {
+  background: var(--bg);
+  border: 1px solid var(--rust);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+}
+.mkey-name-input:focus { outline: none; }
+
+.btn-icon-edit {
+  background: transparent;
+  border: 1px solid var(--line-bright);
+  color: var(--text-faint);
+  border-radius: var(--radius);
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-icon-edit:hover { border-color: var(--rust-bright); color: var(--rust-bright); }
+
 .mkey-name { font-size: 13px; color: var(--text-dim); }
 
 .mkey-value-row {
@@ -656,7 +688,12 @@ table.activity tr:hover td { background: rgba(182,85,31,0.04); }
               <label for="input-key-name">Название ключа</label>
               <input type="text" id="input-key-name" placeholder="например: основной, для друга..." maxlength="40" />
             </div>
-            <button type="submit" id="btn-gen-key" class="btn btn-primary btn-block mt-16">Создать ключ на 24 часа</button>
+            <div class="field">
+              <label for="input-key-hours">Срок действия (часов)</label>
+              <input type="number" id="input-key-hours" value="24" min="0.1" step="0.1" disabled />
+              <div id="duration-hint" class="text-dim" style="margin-top:6px; font-size:12px;">Бесплатный тариф: фиксировано 24 часа</div>
+            </div>
+            <button type="submit" id="btn-gen-key" class="btn btn-primary btn-block mt-16">Создать ключ</button>
           </form>
 
           <div id="cooldown-note" class="cooldown-note">Загрузка...</div>
@@ -712,13 +749,12 @@ table.activity tr:hover td { background: rgba(182,85,31,0.04); }
               <thead>
                 <tr>
                   <th>Пользователь</th>
-                  <th>Название</th>
-                  <th>Ключ</th>
-                  <th>Время</th>
+                  <th>Название ключа</th>
+                  <th>Осталось времени</th>
                 </tr>
               </thead>
               <tbody id="activity-body">
-                <tr><td colspan="4" class="text-dim">Загрузка...</td></tr>
+                <tr><td colspan="3" class="text-dim">Загрузка...</td></tr>
               </tbody>
             </table>
           </div>
@@ -782,6 +818,8 @@ const els = {
   // key generator
   keyForm: document.getElementById("key-form"),
   inputKeyName: document.getElementById("input-key-name"),
+  inputKeyHours: document.getElementById("input-key-hours"),
+  durationHint: document.getElementById("duration-hint"),
   btnGenKey: document.getElementById("btn-gen-key"),
   cooldownNote: document.getElementById("cooldown-note"),
   keyResult: document.getElementById("key-result"),
@@ -1005,6 +1043,17 @@ function renderKeyGenState() {
   const d = currentUserDoc;
   const bypassCooldown = d.isPremium || d.isAdmin;
 
+  // премиум/админ может ввести любой срок действия ключа вручную,
+  // бесплатный тариф — всегда фиксировано 24 часа
+  if (bypassCooldown) {
+    els.inputKeyHours.disabled = false;
+    els.durationHint.textContent = "Premium: укажите любой срок действия в часах";
+  } else {
+    els.inputKeyHours.disabled = true;
+    els.inputKeyHours.value = "24";
+    els.durationHint.textContent = "Бесплатный тариф: фиксировано 24 часа";
+  }
+
   if (bypassCooldown) {
     els.cooldownNote.className = "cooldown-note ready";
     els.cooldownNote.textContent = "Premium: кулдаун не действует — можно создавать ключи в любой момент.";
@@ -1059,6 +1108,14 @@ els.keyForm.addEventListener("submit", async (e) => {
     }
   }
 
+  // premium/admin может задать любой срок действия в часах, free — всегда 24ч
+  let lifetimeMs = APP_CONFIG.KEY_LIFETIME_MS;
+  if (bypassCooldown) {
+    const hours = parseFloat(els.inputKeyHours.value);
+    if (!hours || hours <= 0) return toast("Укажите корректный срок действия в часах", "err");
+    lifetimeMs = hours * 60 * 60 * 1000;
+  }
+
   els.btnGenKey.disabled = true;
   const origText = els.btnGenKey.innerHTML;
   els.btnGenKey.innerHTML = '<span class="spin"></span> Создание...';
@@ -1076,13 +1133,14 @@ els.keyForm.addEventListener("submit", async (e) => {
     if (!keyString) throw new Error("Не удалось сгенерировать уникальный ключ, попробуйте ещё раз");
 
     const now = Date.now();
-    const expiresAt = now + APP_CONFIG.KEY_LIFETIME_MS;
+    const expiresAt = now + lifetimeMs;
 
     await db.collection("keys").doc(keyString).set({
       key: keyString,
       keyName: name,
       ownerUid: currentUser.uid,
       ownerName: currentUserDoc.displayName,
+      ownerEmail: currentUserDoc.email,
       ownerPhoto: currentUserDoc.photoURL || "",
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       expiresAtMs: expiresAt,
@@ -1159,7 +1217,11 @@ function renderMyKeysModal() {
     .map((k, i) => `
       <div class="mkey-card" data-idx="${i}">
         <div class="mkey-top">
-          <span class="mkey-name">${escapeHtml(k.keyName || "Без названия")}</span>
+          <span class="mkey-name-wrap">
+            <span class="mkey-name" data-name-display>${escapeHtml(k.keyName || "Без названия")}</span>
+            <input type="text" class="mkey-name-input hidden" data-name-input value="${escapeHtml(k.keyName || "")}" maxlength="40" />
+            <button class="btn-icon-edit" data-edit-name="${k.key}" title="Переименовать">✎</button>
+          </span>
           <span class="mykey-status" data-status></span>
         </div>
         <div class="mkey-value-row">
@@ -1225,6 +1287,42 @@ function renderMyKeysModal() {
       }
     });
   });
+
+  els.mykeysModalBody.querySelectorAll("[data-edit-name]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const card = btn.closest(".mkey-card");
+      const display = card.querySelector("[data-name-display]");
+      const input = card.querySelector("[data-name-input]");
+      const editing = !input.classList.contains("hidden");
+
+      if (!editing) {
+        // войти в режим редактирования
+        display.classList.add("hidden");
+        input.classList.remove("hidden");
+        input.focus();
+        input.select();
+        btn.textContent = "✓";
+        return;
+      }
+
+      // сохранить новое имя
+      const keyStr = btn.dataset.editName;
+      const newName = input.value.trim();
+      if (!newName) return toast("Название не может быть пустым", "err");
+
+      try {
+        await db.collection("keys").doc(keyStr).set({ keyName: newName }, { merge: true });
+        display.textContent = newName;
+        display.classList.remove("hidden");
+        input.classList.add("hidden");
+        btn.textContent = "✎";
+        toast("Название обновлено", "ok");
+      } catch (err) {
+        console.error(err);
+        toast("Не удалось переименовать: " + err.message, "err");
+      }
+    });
+  });
 }
 
 /* ==========================================================================
@@ -1239,37 +1337,70 @@ function renderUpsell() {
 }
 
 /* ==========================================================================
-   GLOBAL ACTIVITY TABLE (все созданные ключи, сам ключ заблюрен у чужих)
+   GLOBAL ACTIVITY TABLE (все созданные ключи — сам ключ скрыт от всех,
+   видна только иконка + email владельца и обратный отсчёт до истечения)
    ========================================================================== */
+let activityCache = [];
+let activityCountdownInterval = null;
+
 function listenToActivity() {
   db.collection("keys")
     .orderBy("createdAt", "desc")
     .limit(50)
     .onSnapshot((snap) => {
-      if (snap.empty) {
-        els.activityBody.innerHTML = `<tr><td colspan="4" class="text-dim">Пока никто не создавал ключи.</td></tr>`;
-        return;
-      }
-      els.activityBody.innerHTML = "";
-      snap.forEach((doc) => {
-        const k = doc.data();
-        const isSelf = currentUser && k.ownerUid === currentUser.uid;
-        const time = k.createdAt ? k.createdAt.toDate().toLocaleString("ru-RU") : "…";
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
+      activityCache = snap.docs.map((doc) => doc.data());
+      renderActivityTable();
+    }, (err) => console.error("activity listener:", err));
+}
+
+function renderActivityTable() {
+  if (activityCountdownInterval) clearInterval(activityCountdownInterval);
+
+  if (activityCache.length === 0) {
+    els.activityBody.innerHTML = `<tr><td colspan="3" class="text-dim">Пока никто не создавал ключи.</td></tr>`;
+    return;
+  }
+
+  els.activityBody.innerHTML = activityCache
+    .map((k, i) => {
+      const isSelf = currentUser && k.ownerUid === currentUser.uid;
+      return `
+        <tr data-idx="${i}">
           <td>
             <div class="user-cell">
               <img src="${k.ownerPhoto || fallbackAvatar(k.ownerName)}" alt="">
-              <span>${escapeHtml(k.ownerName || "Аноним")}${isSelf ? '<span class="badge-you">ВЫ</span>' : ""}</span>
+              <span>${escapeHtml(k.ownerEmail || "—")}${isSelf ? '<span class="badge-you">ВЫ</span>' : ""}</span>
             </div>
           </td>
           <td>${escapeHtml(k.keyName || "—")}</td>
-          <td><span class="key-blur ${isSelf ? "self" : ""}">${k.key}</span></td>
-          <td class="text-dim">${time}</td>
-        `;
-        els.activityBody.appendChild(tr);
-      });
-    }, (err) => console.error("activity listener:", err));
+          <td data-remaining class="mykey-status"></td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  function tick() {
+    els.activityBody.querySelectorAll("tr[data-idx]").forEach((row) => {
+      const idx = Number(row.dataset.idx);
+      const k = activityCache[idx];
+      const cell = row.querySelector("[data-remaining]");
+      const remaining = k.expiresAtMs - Date.now();
+
+      if (k.revoked) {
+        cell.className = "mykey-status expired";
+        cell.textContent = "Отозван";
+      } else if (remaining <= 0) {
+        cell.className = "mykey-status expired";
+        cell.textContent = "Истёк";
+      } else {
+        cell.className = "mykey-status active";
+        cell.textContent = formatDuration(remaining);
+      }
+    });
+  }
+
+  tick();
+  activityCountdownInterval = setInterval(tick, 1000);
 }
 
 /* ==========================================================================
