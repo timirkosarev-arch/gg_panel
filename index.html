@@ -451,6 +451,89 @@ table.activity tr:hover td { background: rgba(182,85,31,0.04); }
   gap: 12px;
 }
 
+/* ==========================================================================
+   MY KEYS MODAL
+   ========================================================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5,6,3,0.75);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 150;
+  padding: 20px;
+}
+
+.modal-window {
+  width: 100%;
+  max-width: 640px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.modal-close {
+  padding: 6px 10px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.modal-body {
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.mkey-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: var(--bg-2);
+}
+.mkey-card:last-child { margin-bottom: 0; }
+
+.mkey-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mkey-name { font-size: 13px; color: var(--text-dim); }
+
+.mkey-value-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.mkey-value-row .key-value-full {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--acid);
+  letter-spacing: 0.05em;
+  word-break: break-all;
+  flex: 1;
+}
+
+.mkey-actions { display: flex; gap: 8px; margin-top: 10px; }
+.mkey-actions .btn { padding: 7px 12px; font-size: 11px; }
+
+.btn-copy { border-color: var(--acid-dim); color: var(--acid); background: transparent; }
+.btn-copy:hover { background: var(--acid-dim); color: #0d0e0a; }
+
+.mkey-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-top: 6px; }
+
 /* toast */
 #toast {
   position: fixed;
@@ -604,7 +687,8 @@ table.activity tr:hover td { background: rgba(182,85,31,0.04); }
         <section class="panel riveted">
           <span class="rivet-bl"></span><span class="rivet-br"></span>
           <div class="panel-title">Мои ключи</div>
-          <div id="my-keys-list" class="text-dim">Загрузка...</div>
+          <p id="my-keys-summary" class="text-dim" style="margin:0 0 14px;">Загрузка...</p>
+          <button id="btn-open-mykeys" class="btn btn-primary btn-block">Открыть окно ключей</button>
         </section>
 
         <!-- ADMIN PANEL -->
@@ -644,6 +728,20 @@ table.activity tr:hover td { background: rgba(182,85,31,0.04); }
     </div>
   </main>
 
+</div>
+
+<!-- ===================== MY KEYS MODAL ===================== -->
+<div id="mykeys-modal" class="modal-overlay hidden">
+  <div class="modal-window panel riveted">
+    <span class="rivet-bl"></span><span class="rivet-br"></span>
+    <div class="modal-header">
+      <div class="panel-title" style="margin:0;">Мои ключи</div>
+      <button id="btn-close-mykeys" class="btn btn-ghost modal-close">✕</button>
+    </div>
+    <div id="mykeys-modal-body" class="modal-body">
+      <div class="text-dim">Загрузка...</div>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -689,7 +787,11 @@ const els = {
   keyResult: document.getElementById("key-result"),
 
   // my keys
-  myKeysList: document.getElementById("my-keys-list"),
+  myKeysSummary: document.getElementById("my-keys-summary"),
+  btnOpenMyKeys: document.getElementById("btn-open-mykeys"),
+  btnCloseMyKeys: document.getElementById("btn-close-mykeys"),
+  mykeysModal: document.getElementById("mykeys-modal"),
+  mykeysModalBody: document.getElementById("mykeys-modal-body"),
 
   // upsell
   upsellPanel: document.getElementById("upsell-panel"),
@@ -709,6 +811,8 @@ const els = {
 let currentUser = null;      // firebase auth user
 let currentUserDoc = null;   // firestore users/{uid} data
 let cooldownInterval = null;
+let myKeysCache = [];        // кэш ключей текущего пользователя, для окна "Мои ключи"
+let mykeysCountdownInterval = null;
 
 /* ==========================================================================
    TOAST
@@ -960,18 +1064,29 @@ els.keyForm.addEventListener("submit", async (e) => {
   els.btnGenKey.innerHTML = '<span class="spin"></span> Создание...';
 
   try {
-    const keyString = generateKeyString();
+    // ключ = ID документа в Firestore (коллекция "keys"), чтобы чит мог
+    // проверять его напрямую GET-запросом по известной строке ключа,
+    // не имея доступа к списку всех ключей (см. firestore.rules)
+    let keyString;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = generateKeyString();
+      const exists = (await db.collection("keys").doc(candidate).get()).exists;
+      if (!exists) { keyString = candidate; break; }
+    }
+    if (!keyString) throw new Error("Не удалось сгенерировать уникальный ключ, попробуйте ещё раз");
+
     const now = Date.now();
     const expiresAt = now + APP_CONFIG.KEY_LIFETIME_MS;
 
-    await db.collection("keys").add({
+    await db.collection("keys").doc(keyString).set({
       key: keyString,
       keyName: name,
       ownerUid: currentUser.uid,
       ownerName: currentUserDoc.displayName,
       ownerPhoto: currentUserDoc.photoURL || "",
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      expiresAtMs: expiresAt
+      expiresAtMs: expiresAt,
+      revoked: false
     });
 
     await db.collection("users").doc(currentUser.uid).set(
@@ -996,34 +1111,120 @@ els.keyForm.addEventListener("submit", async (e) => {
 });
 
 /* ==========================================================================
-   MY KEYS
+   MY KEYS — окно со списком всех ключей текущего пользователя
    ========================================================================== */
 function listenToMyKeys(uid) {
   db.collection("keys")
     .where("ownerUid", "==", uid)
     .orderBy("createdAt", "desc")
-    .limit(20)
+    .limit(50)
     .onSnapshot((snap) => {
-      if (snap.empty) {
-        els.myKeysList.innerHTML = '<div class="text-dim">У вас пока нет ключей.</div>';
-        return;
-      }
-      els.myKeysList.innerHTML = "";
-      snap.forEach((doc) => {
-        const k = doc.data();
-        const active = k.expiresAtMs > Date.now();
-        const row = document.createElement("div");
-        row.className = "mykey-row";
-        row.innerHTML = `
-          <div>
-            <div class="mykey-name">${escapeHtml(k.keyName)}</div>
-            <div class="mykey-key">${k.key}</div>
-          </div>
-          <div class="mykey-status ${active ? "active" : "expired"}">${active ? "Активен" : "Истёк"}</div>
-        `;
-        els.myKeysList.appendChild(row);
-      });
+      myKeysCache = snap.docs.map((doc) => doc.data());
+      renderMyKeysSummary();
+      if (!els.mykeysModal.classList.contains("hidden")) renderMyKeysModal();
     }, (err) => console.error("myKeys listener:", err));
+}
+
+function renderMyKeysSummary() {
+  const activeCount = myKeysCache.filter((k) => !k.revoked && k.expiresAtMs > Date.now()).length;
+  els.myKeysSummary.textContent =
+    myKeysCache.length === 0
+      ? "У вас пока нет ключей."
+      : `Всего ключей: ${myKeysCache.length} · активных: ${activeCount}`;
+}
+
+els.btnOpenMyKeys.addEventListener("click", () => {
+  els.mykeysModal.classList.remove("hidden");
+  renderMyKeysModal();
+});
+els.btnCloseMyKeys.addEventListener("click", closeMyKeysModal);
+els.mykeysModal.addEventListener("click", (e) => {
+  if (e.target === els.mykeysModal) closeMyKeysModal();
+});
+
+function closeMyKeysModal() {
+  els.mykeysModal.classList.add("hidden");
+  if (mykeysCountdownInterval) clearInterval(mykeysCountdownInterval);
+}
+
+function renderMyKeysModal() {
+  if (mykeysCountdownInterval) clearInterval(mykeysCountdownInterval);
+
+  if (myKeysCache.length === 0) {
+    els.mykeysModalBody.innerHTML = '<div class="text-dim">У вас пока нет ключей. Создайте первый в панели "Создать ключ".</div>';
+    return;
+  }
+
+  els.mykeysModalBody.innerHTML = myKeysCache
+    .map((k, i) => `
+      <div class="mkey-card" data-idx="${i}">
+        <div class="mkey-top">
+          <span class="mkey-name">${escapeHtml(k.keyName || "Без названия")}</span>
+          <span class="mykey-status" data-status></span>
+        </div>
+        <div class="mkey-value-row">
+          <span class="key-value-full">${k.key}</span>
+        </div>
+        <div class="mkey-meta" data-meta></div>
+        <div class="mkey-actions">
+          <button class="btn btn-copy" data-copy="${k.key}">Скопировать</button>
+          ${!k.revoked ? `<button class="btn btn-danger" data-revoke="${k.key}">Отозвать</button>` : ""}
+        </div>
+      </div>
+    `)
+    .join("");
+
+  function tick() {
+    els.mykeysModalBody.querySelectorAll(".mkey-card").forEach((card) => {
+      const idx = Number(card.dataset.idx);
+      const k = myKeysCache[idx];
+      const statusEl = card.querySelector("[data-status]");
+      const metaEl = card.querySelector("[data-meta]");
+      const remaining = k.expiresAtMs - Date.now();
+
+      if (k.revoked) {
+        statusEl.className = "mykey-status expired";
+        statusEl.textContent = "Отозван";
+        metaEl.textContent = "Ключ отозван вручную";
+      } else if (remaining <= 0) {
+        statusEl.className = "mykey-status expired";
+        statusEl.textContent = "Истёк";
+        metaEl.textContent = "Срок действия истёк";
+      } else {
+        statusEl.className = "mykey-status active";
+        statusEl.textContent = "Активен";
+        metaEl.textContent = `Истекает через ${formatDuration(remaining)}`;
+      }
+    });
+  }
+
+  tick();
+  mykeysCountdownInterval = setInterval(tick, 1000);
+
+  els.mykeysModalBody.querySelectorAll("[data-copy]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        toast("Ключ скопирован", "ok");
+      } catch {
+        toast("Не удалось скопировать", "err");
+      }
+    });
+  });
+
+  els.mykeysModalBody.querySelectorAll("[data-revoke]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const keyStr = btn.dataset.revoke;
+      if (!confirm(`Отозвать ключ "${keyStr}"? Это действие нельзя отменить.`)) return;
+      try {
+        await db.collection("keys").doc(keyStr).set({ revoked: true }, { merge: true });
+        toast("Ключ отозван", "ok");
+      } catch (err) {
+        console.error(err);
+        toast("Не удалось отозвать ключ: " + err.message, "err");
+      }
+    });
+  });
 }
 
 /* ==========================================================================
