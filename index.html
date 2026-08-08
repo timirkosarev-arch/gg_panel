@@ -1,1 +1,1143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RUST.KEYS — Панель ключей</title>
+<link rel="icon" href="https://i.ibb.co.com/0yzGNWCg/png-transparent-rust-twitch-metal-face-skin-grime-rust-face-video-game-twitch-thumbnail-removebg-pre.png" />
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ==========================================================================
+   TOKENS
+   ========================================================================== */
+:root {
+  --bg: #0d0e0a;
+  --bg-2: #14150f;
+  --panel: #1a1b14;
+  --panel-2: #202117;
+  --line: #34362a;
+  --line-bright: #4a4c3a;
+
+  --rust: #b6551f;
+  --rust-bright: #d4712f;
+  --acid: #a9d43c;
+  --acid-dim: #6f8c2c;
+  --danger: #c23b28;
+  --gold: #d4a72f;
+
+  --text: #e7e4d6;
+  --text-dim: #a3a291;
+  --text-faint: #66675a;
+
+  --font-display: "Rajdhani", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-body: "Inter", sans-serif;
+
+  --radius: 3px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 15% 10%, rgba(182,85,31,0.07), transparent 40%),
+    radial-gradient(circle at 85% 90%, rgba(169,212,60,0.05), transparent 40%);
+  background-attachment: fixed;
+}
+
+/* subtle grain */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  z-index: 999;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin: 0;
+}
+
+a { color: var(--rust-bright); }
+
+::selection { background: var(--rust); color: #0d0e0a; }
+
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-2); }
+::-webkit-scrollbar-thumb { background: var(--line-bright); border-radius: 10px; }
+
+/* ==========================================================================
+   LAYOUT SHELL
+   ========================================================================== */
+#app { min-height: 100vh; display: flex; flex-direction: column; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--bg-2), var(--bg));
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand .eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--acid);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  display: block;
+}
+
+.brand h1 {
+  font-size: 22px;
+  color: var(--text);
+  text-transform: uppercase;
+}
+
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+
+.icon-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid var(--rust);
+  padding: 3px;
+  background: var(--panel);
+  box-shadow: 0 0 0 3px rgba(182,85,31,0.15);
+}
+.icon-badge img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+
+main {
+  flex: 1;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 28px 80px;
+}
+
+.hidden { display: none !important; }
+
+/* ==========================================================================
+   PANELS / RIVETED CARDS (signature element)
+   ========================================================================== */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  position: relative;
+  padding: 24px;
+}
+
+.panel::before, .panel::after,
+.panel .rivet-tl, .panel .rivet-br { content: none; }
+
+.riveted { position: relative; }
+.riveted::before, .riveted::after {
+  content: "";
+  position: absolute;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #6b6c5a, #26271c 70%);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+  top: 8px; left: 8px;
+}
+.riveted::after { left: auto; right: 8px; }
+.riveted .rivet-bl, .riveted .rivet-br {
+  position: absolute;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #6b6c5a, #26271c 70%);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+  bottom: 8px;
+}
+.riveted .rivet-bl { left: 8px; }
+.riveted .rivet-br { right: 8px; }
+
+.panel-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-title::before {
+  content: "";
+  width: 8px; height: 8px;
+  background: var(--rust);
+  display: inline-block;
+  transform: rotate(45deg);
+}
+
+/* ==========================================================================
+   LOGIN SCREEN
+   ========================================================================== */
+#login-screen {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login-card {
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  padding: 48px 36px;
+}
+
+.login-card .icon-badge {
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 20px;
+}
+
+.login-card h2 {
+  font-size: 26px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.login-card p {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin: 0 0 28px;
+  line-height: 1.6;
+}
+
+.btn {
+  font-family: var(--font-display);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 14px;
+  border: 1px solid var(--line-bright);
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.btn:hover { border-color: var(--rust-bright); color: var(--rust-bright); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--rust);
+  border-color: var(--rust);
+  color: #0d0e0a;
+}
+.btn-primary:hover { background: var(--rust-bright); border-color: var(--rust-bright); color: #0d0e0a; }
+
+.btn-ghost { background: transparent; }
+
+.btn-danger { border-color: var(--danger); color: var(--danger); background: transparent; }
+.btn-danger:hover { background: var(--danger); color: #0d0e0a; }
+
+.btn-block { width: 100%; }
+
+/* ==========================================================================
+   DASHBOARD GRID
+   ========================================================================== */
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1.4fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .dash-grid { grid-template-columns: 1fr; }
+}
+
+.stack { display: flex; flex-direction: column; gap: 24px; }
+
+/* profile card */
+.profile-head { display: flex; align-items: center; gap: 16px; margin-bottom: 4px; }
+.avatar {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--line-bright);
+  background: var(--panel-2);
+}
+.profile-name { font-family: var(--font-display); font-size: 18px; text-transform: uppercase; }
+.profile-email { color: var(--text-faint); font-size: 12px; font-family: var(--font-mono); }
+
+.tier-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 2px;
+  margin-top: 4px;
+}
+.tier-free { border: 1px solid var(--line-bright); color: var(--text-dim); }
+.tier-premium { border: 1px solid var(--gold); color: var(--gold); background: rgba(212,167,47,0.08); }
+.tier-admin { border: 1px solid var(--danger); color: var(--danger); background: rgba(194,59,40,0.08); }
+
+.field { margin-top: 16px; }
+.field label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.field input[type="text"], .field input[type="file"] {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+.field input:focus { outline: none; border-color: var(--rust); }
+
+/* key generator */
+.cooldown-note {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--bg-2);
+  border: 1px dashed var(--line-bright);
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  margin-top: 14px;
+  line-height: 1.5;
+}
+.cooldown-note.ready { border-color: var(--acid-dim); color: var(--acid); }
+.cooldown-note .cd-timer { color: var(--rust-bright); font-weight: 600; }
+
+.key-result {
+  margin-top: 18px;
+  padding: 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--acid-dim);
+  border-radius: var(--radius);
+}
+.key-result .key-value {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  letter-spacing: 0.08em;
+  color: var(--acid);
+  word-break: break-all;
+}
+.key-result .key-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 8px;
+}
+
+/* my keys list */
+.mykey-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  gap: 10px;
+}
+.mykey-row:last-child { border-bottom: none; }
+.mykey-name { font-size: 13px; color: var(--text); }
+.mykey-key { font-family: var(--font-mono); font-size: 12px; color: var(--acid); }
+.mykey-status { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; }
+.mykey-status.active { color: var(--acid); }
+.mykey-status.expired { color: var(--text-faint); }
+
+/* premium upsell */
+.upsell {
+  border-color: var(--gold);
+  background: linear-gradient(160deg, rgba(212,167,47,0.06), transparent);
+}
+.upsell ul { margin: 14px 0 20px; padding-left: 18px; color: var(--text-dim); font-size: 13px; line-height: 1.9; }
+.upsell li::marker { color: var(--gold); }
+
+/* leaderboard / activity table */
+.table-wrap { overflow-x: auto; }
+table.activity { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.activity th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-bright);
+}
+table.activity td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+table.activity tr:hover td { background: rgba(182,85,31,0.04); }
+
+.user-cell { display: flex; align-items: center; gap: 10px; }
+.user-cell img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line-bright); }
+
+.key-blur {
+  font-family: var(--font-mono);
+  filter: blur(5px);
+  user-select: none;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  transition: filter 0.15s ease;
+}
+.key-blur.self { filter: none; color: var(--acid); }
+
+.badge-you {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--acid);
+  border: 1px solid var(--acid-dim);
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin-left: 6px;
+}
+
+/* admin panel */
+.admin-search { display: flex; gap: 10px; }
+.admin-search input { flex: 1; }
+.admin-result {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* toast */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--panel-2);
+  border: 1px solid var(--line-bright);
+  color: var(--text);
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s ease;
+  font-family: var(--font-mono);
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.err { border-color: var(--danger); color: var(--danger); }
+#toast.ok { border-color: var(--acid-dim); color: var(--acid); }
+
+.spin {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: var(--rust-bright);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.text-dim { color: var(--text-dim); font-size: 13px; line-height: 1.6; }
+.mt-8 { margin-top: 8px; } .mt-16 { margin-top: 16px; } .mt-24 { margin-top: 24px; }
+
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ===================== TOPBAR ===================== -->
+  <header class="topbar">
+    <div class="brand">
+      <div>
+        <span class="eyebrow">key panel</span>
+        <h1>RUST.KEYS</h1>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div id="topbar-user" class="hidden"></div>
+      <button id="btn-logout" class="btn btn-ghost hidden">Выйти</button>
+      <div class="icon-badge">
+        <img src="https://i.ibb.co.com/0yzGNWCg/png-transparent-rust-twitch-metal-face-skin-grime-rust-face-video-game-twitch-thumbnail-removebg-pre.png" alt="logo" />
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== LOGIN SCREEN ===================== -->
+  <div id="login-screen">
+    <div class="panel riveted login-card">
+      <span class="rivet-bl"></span><span class="rivet-br"></span>
+      <div class="icon-badge">
+        <img src="https://i.ibb.co.com/0yzGNWCg/png-transparent-rust-twitch-metal-face-skin-grime-rust-face-video-game-twitch-thumbnail-removebg-pre.png" alt="logo" />
+      </div>
+      <h2>Доступ по ключу</h2>
+      <p>Войдите через Google, чтобы создавать и отслеживать ключи доступа.</p>
+      <button id="btn-google" class="btn btn-primary btn-block">
+        Войти через Google
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <main id="dash-screen" class="hidden">
+    <div class="dash-grid">
+
+      <!-- LEFT COLUMN -->
+      <div class="stack">
+
+        <!-- PROFILE -->
+        <section class="panel riveted">
+          <span class="rivet-bl"></span><span class="rivet-br"></span>
+          <div class="panel-title">Профиль</div>
+
+          <div class="profile-head">
+            <img id="profile-avatar" class="avatar" src="" alt="avatar" />
+            <div>
+              <div id="profile-name" class="profile-name">—</div>
+              <div id="profile-email" class="profile-email">—</div>
+              <span id="tier-tag" class="tier-tag tier-free">Free</span>
+            </div>
+          </div>
+
+          <button id="btn-edit-profile" class="btn btn-ghost btn-block mt-16">Настроить профиль</button>
+
+          <form id="profile-form" class="hidden mt-16">
+            <div class="field">
+              <label for="input-display-name">Отображаемое имя</label>
+              <input type="text" id="input-display-name" placeholder="Ваше имя" />
+            </div>
+            <div class="field">
+              <label for="input-photo">Фото профиля (через imgBB)</label>
+              <input type="file" id="input-photo" accept="image/*" />
+            </div>
+            <div class="mt-16" style="display:flex; gap:10px;">
+              <button type="button" id="btn-save-profile" class="btn btn-primary" style="flex:1;">Сохранить</button>
+              <button type="button" id="btn-cancel-profile" class="btn btn-ghost">Отмена</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- KEY GENERATOR -->
+        <section class="panel riveted">
+          <span class="rivet-bl"></span><span class="rivet-br"></span>
+          <div class="panel-title">Создать ключ</div>
+
+          <form id="key-form">
+            <div class="field">
+              <label for="input-key-name">Название ключа</label>
+              <input type="text" id="input-key-name" placeholder="например: основной, для друга..." maxlength="40" />
+            </div>
+            <button type="submit" id="btn-gen-key" class="btn btn-primary btn-block mt-16">Создать ключ на 24 часа</button>
+          </form>
+
+          <div id="cooldown-note" class="cooldown-note">Загрузка...</div>
+          <div id="key-result" class="key-result hidden"></div>
+        </section>
+
+        <!-- UPSELL -->
+        <section id="upsell-panel" class="panel riveted upsell hidden">
+          <span class="rivet-bl"></span><span class="rivet-br"></span>
+          <div class="panel-title" style="color:var(--gold);">Premium</div>
+          <p class="text-dim" style="margin:0;">Снимите ограничения бесплатного тарифа:</p>
+          <ul>
+            <li>Без кулдауна 2 дня — создавайте ключи сразу</li>
+            <li>Приоритетная поддержка</li>
+            <li>Отметка Premium в списке пользователей</li>
+          </ul>
+          <a href="mailto:timirkosarev@gmail.com?subject=Хочу%20Premium%20в%20RUST.KEYS" class="btn btn-block" style="border-color:var(--gold); color:var(--gold);">
+            Оформить Premium
+          </a>
+        </section>
+
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div class="stack">
+
+        <!-- MY KEYS -->
+        <section class="panel riveted">
+          <span class="rivet-bl"></span><span class="rivet-br"></span>
+          <div class="panel-title">Мои ключи</div>
+          <div id="my-keys-list" class="text-dim">Загрузка...</div>
+        </section>
+
+        <!-- ADMIN PANEL -->
+        <section id="admin-panel" class="panel riveted hidden" style="border-color:var(--danger);">
+          <span class="rivet-bl"></span><span class="rivet-br"></span>
+          <div class="panel-title" style="color:var(--danger);">Админ-панель</div>
+          <p class="text-dim" style="margin:0 0 12px;">Выдайте или снимите Premium любому пользователю по email.</p>
+          <div class="admin-search">
+            <input type="text" id="admin-search-input" placeholder="email пользователя" />
+            <button id="admin-search-btn" class="btn btn-primary">Найти</button>
+          </div>
+          <div id="admin-result" class="admin-result hidden"></div>
+        </section>
+
+        <!-- ACTIVITY TABLE -->
+        <section class="panel riveted">
+          <span class="rivet-bl"></span><span class="rivet-br"></span>
+          <div class="panel-title">Активность — все ключи</div>
+          <div class="table-wrap">
+            <table class="activity">
+              <thead>
+                <tr>
+                  <th>Пользователь</th>
+                  <th>Название</th>
+                  <th>Ключ</th>
+                  <th>Время</th>
+                </tr>
+              </thead>
+              <tbody id="activity-body">
+                <tr><td colspan="4" class="text-dim">Загрузка...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<div id="toast"></div>
+
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+<script src="config.js"></script>
+<script>
+/* ==========================================================================
+   INIT
+   ========================================================================== */
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const els = {
+  loginScreen: document.getElementById("login-screen"),
+  dashScreen: document.getElementById("dash-screen"),
+  btnGoogle: document.getElementById("btn-google"),
+  btnLogout: document.getElementById("btn-logout"),
+  topbarUser: document.getElementById("topbar-user"),
+
+  // profile
+  avatar: document.getElementById("profile-avatar"),
+  profileName: document.getElementById("profile-name"),
+  profileEmail: document.getElementById("profile-email"),
+  tierTag: document.getElementById("tier-tag"),
+  btnEditProfile: document.getElementById("btn-edit-profile"),
+  profileForm: document.getElementById("profile-form"),
+  inputDisplayName: document.getElementById("input-display-name"),
+  inputPhoto: document.getElementById("input-photo"),
+  btnSaveProfile: document.getElementById("btn-save-profile"),
+  btnCancelProfile: document.getElementById("btn-cancel-profile"),
+
+  // key generator
+  keyForm: document.getElementById("key-form"),
+  inputKeyName: document.getElementById("input-key-name"),
+  btnGenKey: document.getElementById("btn-gen-key"),
+  cooldownNote: document.getElementById("cooldown-note"),
+  keyResult: document.getElementById("key-result"),
+
+  // my keys
+  myKeysList: document.getElementById("my-keys-list"),
+
+  // upsell
+  upsellPanel: document.getElementById("upsell-panel"),
+
+  // activity table
+  activityBody: document.getElementById("activity-body"),
+
+  // admin
+  adminPanel: document.getElementById("admin-panel"),
+  adminSearchInput: document.getElementById("admin-search-input"),
+  adminSearchBtn: document.getElementById("admin-search-btn"),
+  adminResult: document.getElementById("admin-result"),
+
+  toast: document.getElementById("toast")
+};
+
+let currentUser = null;      // firebase auth user
+let currentUserDoc = null;   // firestore users/{uid} data
+let cooldownInterval = null;
+
+/* ==========================================================================
+   TOAST
+   ========================================================================== */
+function toast(msg, type = "") {
+  els.toast.textContent = msg;
+  els.toast.className = "show " + type;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (els.toast.className = ""), 3200);
+}
+
+/* ==========================================================================
+   AUTH
+   ========================================================================== */
+els.btnGoogle.addEventListener("click", async () => {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try {
+    els.btnGoogle.disabled = true;
+    await auth.signInWithPopup(provider);
+  } catch (err) {
+    console.error(err);
+    toast("Не удалось войти: " + err.message, "err");
+  } finally {
+    els.btnGoogle.disabled = false;
+  }
+});
+
+els.btnLogout.addEventListener("click", () => auth.signOut());
+
+auth.onAuthStateChanged(async (user) => {
+  currentUser = user;
+  if (!user) {
+    els.loginScreen.classList.remove("hidden");
+    els.dashScreen.classList.add("hidden");
+    els.topbarUser.classList.add("hidden");
+    if (cooldownInterval) clearInterval(cooldownInterval);
+    return;
+  }
+
+  els.loginScreen.classList.add("hidden");
+  els.dashScreen.classList.remove("hidden");
+  els.topbarUser.classList.remove("hidden");
+
+  await ensureUserDoc(user);
+  listenToUserDoc(user.uid);
+  listenToMyKeys(user.uid);
+  listenToActivity();
+});
+
+/* ==========================================================================
+   USER DOC
+   ========================================================================== */
+async function ensureUserDoc(user) {
+  const ref = db.collection("users").doc(user.uid);
+  const snap = await ref.get();
+  const isAdmin = user.email === APP_CONFIG.ADMIN_EMAIL;
+
+  if (!snap.exists) {
+    await ref.set({
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || user.email.split("@")[0],
+      photoURL: user.photoURL || "",
+      isPremium: isAdmin,      // админ всегда премиум
+      isAdmin: isAdmin,
+      lastKeyGeneratedAt: null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } else if (isAdmin && (!snap.data().isPremium || !snap.data().isAdmin)) {
+    // если это админ-емейл, всегда держим флаги включёнными
+    await ref.set({ isPremium: true, isAdmin: true }, { merge: true });
+  }
+}
+
+function listenToUserDoc(uid) {
+  db.collection("users").doc(uid).onSnapshot((snap) => {
+    if (!snap.exists) return;
+    currentUserDoc = snap.data();
+    renderProfile();
+    renderKeyGenState();
+    renderUpsell();
+    renderAdminPanelVisibility();
+  });
+}
+
+/* ==========================================================================
+   RENDER: PROFILE
+   ========================================================================== */
+function renderProfile() {
+  const d = currentUserDoc;
+  els.avatar.src = d.photoURL || fallbackAvatar(d.displayName);
+  els.profileName.textContent = d.displayName;
+  els.profileEmail.textContent = d.email;
+  els.inputDisplayName.value = d.displayName;
+
+  els.tierTag.className = "tier-tag " + (d.isAdmin ? "tier-admin" : d.isPremium ? "tier-premium" : "tier-free");
+  els.tierTag.textContent = d.isAdmin ? "Admin / Premium" : d.isPremium ? "Premium" : "Free";
+
+  // topbar mini avatar
+  els.topbarUser.innerHTML = "";
+  const img = document.createElement("img");
+  img.src = d.photoURL || fallbackAvatar(d.displayName);
+  img.alt = "avatar";
+  img.style.cssText = "width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid var(--line-bright);";
+  els.topbarUser.appendChild(img);
+}
+
+function fallbackAvatar(name) {
+  const initial = encodeURIComponent((name || "?")[0].toUpperCase());
+  return `https://ui-avatars.com/api/?name=${initial}&background=1a1b14&color=b6551f&bold=true`;
+}
+
+els.btnEditProfile.addEventListener("click", () => {
+  els.profileForm.classList.toggle("hidden");
+});
+els.btnCancelProfile.addEventListener("click", () => {
+  els.profileForm.classList.add("hidden");
+});
+
+els.btnSaveProfile.addEventListener("click", async () => {
+  if (!currentUser) return;
+  els.btnSaveProfile.disabled = true;
+  const origText = els.btnSaveProfile.innerHTML;
+  els.btnSaveProfile.innerHTML = '<span class="spin"></span> Сохранение...';
+
+  try {
+    const updates = {};
+    const newName = els.inputDisplayName.value.trim();
+    if (newName) updates.displayName = newName;
+
+    const file = els.inputPhoto.files[0];
+    if (file) {
+      const url = await uploadToImgBB(file);
+      updates.photoURL = url;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await db.collection("users").doc(currentUser.uid).set(updates, { merge: true });
+    }
+    toast("Профиль обновлён", "ok");
+    els.profileForm.classList.add("hidden");
+    els.inputPhoto.value = "";
+  } catch (err) {
+    console.error(err);
+    toast("Ошибка сохранения профиля: " + err.message, "err");
+  } finally {
+    els.btnSaveProfile.disabled = false;
+    els.btnSaveProfile.innerHTML = origText;
+  }
+});
+
+async function uploadToImgBB(file) {
+  const base64 = await fileToBase64(file);
+  const form = new FormData();
+  form.append("key", APP_CONFIG.IMGBB_API_KEY);
+  form.append("image", base64);
+
+  const res = await fetch("https://api.imgbb.com/1/upload", { method: "POST", body: form });
+  const data = await res.json();
+  if (!data.success) throw new Error("imgBB: не удалось загрузить фото");
+  return data.data.url;
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ==========================================================================
+   KEY GENERATION
+   ========================================================================== */
+function generateKeyString() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const groups = [];
+  for (let g = 0; g < 4; g++) {
+    let group = "";
+    const rnd = new Uint8Array(4);
+    crypto.getRandomValues(rnd);
+    for (let i = 0; i < 4; i++) group += chars[rnd[i] % chars.length];
+    groups.push(group);
+  }
+  return "RUST-" + groups.join("-");
+}
+
+function renderKeyGenState() {
+  const d = currentUserDoc;
+  const bypassCooldown = d.isPremium || d.isAdmin;
+
+  if (bypassCooldown) {
+    els.cooldownNote.className = "cooldown-note ready";
+    els.cooldownNote.textContent = "Premium: кулдаун не действует — можно создавать ключи в любой момент.";
+    els.btnGenKey.disabled = false;
+    if (cooldownInterval) clearInterval(cooldownInterval);
+    return;
+  }
+
+  const last = d.lastKeyGeneratedAt ? d.lastKeyGeneratedAt.toMillis() : 0;
+  const readyAt = last + APP_CONFIG.FREE_COOLDOWN_MS;
+
+  if (cooldownInterval) clearInterval(cooldownInterval);
+
+  function tick() {
+    const remaining = readyAt - Date.now();
+    if (remaining <= 0) {
+      els.cooldownNote.className = "cooldown-note ready";
+      els.cooldownNote.textContent = "Кулдаун прошёл — можно создать новый ключ.";
+      els.btnGenKey.disabled = false;
+      clearInterval(cooldownInterval);
+      return;
+    }
+    els.btnGenKey.disabled = true;
+    els.cooldownNote.className = "cooldown-note";
+    els.cooldownNote.innerHTML = `Бесплатный тариф: следующий ключ можно создать через <span class="cd-timer">${formatDuration(remaining)}</span>`;
+  }
+
+  tick();
+  cooldownInterval = setInterval(tick, 1000);
+}
+
+function formatDuration(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+els.keyForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!currentUser || !currentUserDoc) return;
+
+  const name = els.inputKeyName.value.trim();
+  if (!name) return toast("Введите имя ключа", "err");
+
+  const bypassCooldown = currentUserDoc.isPremium || currentUserDoc.isAdmin;
+  if (!bypassCooldown) {
+    const last = currentUserDoc.lastKeyGeneratedAt ? currentUserDoc.lastKeyGeneratedAt.toMillis() : 0;
+    if (Date.now() - last < APP_CONFIG.FREE_COOLDOWN_MS) {
+      return toast("Кулдаун ещё не прошёл", "err");
+    }
+  }
+
+  els.btnGenKey.disabled = true;
+  const origText = els.btnGenKey.innerHTML;
+  els.btnGenKey.innerHTML = '<span class="spin"></span> Создание...';
+
+  try {
+    const keyString = generateKeyString();
+    const now = Date.now();
+    const expiresAt = now + APP_CONFIG.KEY_LIFETIME_MS;
+
+    await db.collection("keys").add({
+      key: keyString,
+      keyName: name,
+      ownerUid: currentUser.uid,
+      ownerName: currentUserDoc.displayName,
+      ownerPhoto: currentUserDoc.photoURL || "",
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      expiresAtMs: expiresAt
+    });
+
+    await db.collection("users").doc(currentUser.uid).set(
+      { lastKeyGeneratedAt: firebase.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+
+    els.keyResult.classList.remove("hidden");
+    els.keyResult.innerHTML = `
+      <div class="key-value">${keyString}</div>
+      <div class="key-meta">"${escapeHtml(name)}" · истекает ${new Date(expiresAt).toLocaleString("ru-RU")}</div>
+    `;
+    els.inputKeyName.value = "";
+    toast("Ключ создан", "ok");
+  } catch (err) {
+    console.error(err);
+    toast("Не удалось создать ключ: " + err.message, "err");
+  } finally {
+    els.btnGenKey.innerHTML = origText;
+    // renderKeyGenState вызовется автоматически через onSnapshot после обновления lastKeyGeneratedAt
+  }
+});
+
+/* ==========================================================================
+   MY KEYS
+   ========================================================================== */
+function listenToMyKeys(uid) {
+  db.collection("keys")
+    .where("ownerUid", "==", uid)
+    .orderBy("createdAt", "desc")
+    .limit(20)
+    .onSnapshot((snap) => {
+      if (snap.empty) {
+        els.myKeysList.innerHTML = '<div class="text-dim">У вас пока нет ключей.</div>';
+        return;
+      }
+      els.myKeysList.innerHTML = "";
+      snap.forEach((doc) => {
+        const k = doc.data();
+        const active = k.expiresAtMs > Date.now();
+        const row = document.createElement("div");
+        row.className = "mykey-row";
+        row.innerHTML = `
+          <div>
+            <div class="mykey-name">${escapeHtml(k.keyName)}</div>
+            <div class="mykey-key">${k.key}</div>
+          </div>
+          <div class="mykey-status ${active ? "active" : "expired"}">${active ? "Активен" : "Истёк"}</div>
+        `;
+        els.myKeysList.appendChild(row);
+      });
+    }, (err) => console.error("myKeys listener:", err));
+}
+
+/* ==========================================================================
+   UPSELL
+   ========================================================================== */
+function renderUpsell() {
+  if (currentUserDoc.isPremium || currentUserDoc.isAdmin) {
+    els.upsellPanel.classList.add("hidden");
+  } else {
+    els.upsellPanel.classList.remove("hidden");
+  }
+}
+
+/* ==========================================================================
+   GLOBAL ACTIVITY TABLE (все созданные ключи, сам ключ заблюрен у чужих)
+   ========================================================================== */
+function listenToActivity() {
+  db.collection("keys")
+    .orderBy("createdAt", "desc")
+    .limit(50)
+    .onSnapshot((snap) => {
+      if (snap.empty) {
+        els.activityBody.innerHTML = `<tr><td colspan="4" class="text-dim">Пока никто не создавал ключи.</td></tr>`;
+        return;
+      }
+      els.activityBody.innerHTML = "";
+      snap.forEach((doc) => {
+        const k = doc.data();
+        const isSelf = currentUser && k.ownerUid === currentUser.uid;
+        const time = k.createdAt ? k.createdAt.toDate().toLocaleString("ru-RU") : "…";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>
+            <div class="user-cell">
+              <img src="${k.ownerPhoto || fallbackAvatar(k.ownerName)}" alt="">
+              <span>${escapeHtml(k.ownerName || "Аноним")}${isSelf ? '<span class="badge-you">ВЫ</span>' : ""}</span>
+            </div>
+          </td>
+          <td>${escapeHtml(k.keyName || "—")}</td>
+          <td><span class="key-blur ${isSelf ? "self" : ""}">${k.key}</span></td>
+          <td class="text-dim">${time}</td>
+        `;
+        els.activityBody.appendChild(tr);
+      });
+    }, (err) => console.error("activity listener:", err));
+}
+
+/* ==========================================================================
+   ADMIN PANEL — выдача премиума любому пользователю
+   ========================================================================== */
+function renderAdminPanelVisibility() {
+  if (currentUserDoc.isAdmin) {
+    els.adminPanel.classList.remove("hidden");
+  } else {
+    els.adminPanel.classList.add("hidden");
+  }
+}
+
+els.adminSearchBtn.addEventListener("click", async () => {
+  const email = els.adminSearchInput.value.trim().toLowerCase();
+  if (!email) return;
+
+  els.adminResult.innerHTML = '<span class="spin"></span> Поиск...';
+  els.adminResult.classList.remove("hidden");
+
+  try {
+    const snap = await db.collection("users").where("email", "==", email).limit(1).get();
+    if (snap.empty) {
+      els.adminResult.innerHTML = `<span class="text-dim">Пользователь с email "${escapeHtml(email)}" не найден (он должен хотя бы раз войти в систему).</span>`;
+      return;
+    }
+    const docRef = snap.docs[0].ref;
+    const u = snap.docs[0].data();
+    renderAdminResult(docRef, u);
+  } catch (err) {
+    console.error(err);
+    els.adminResult.innerHTML = `<span style="color:var(--danger)">Ошибка поиска: ${err.message}</span>`;
+  }
+});
+
+function renderAdminResult(docRef, u) {
+  els.adminResult.innerHTML = `
+    <div class="user-cell">
+      <img src="${u.photoURL || fallbackAvatar(u.displayName)}" alt="">
+      <div>
+        <div>${escapeHtml(u.displayName)}</div>
+        <div class="text-dim" style="font-family:var(--font-mono);font-size:11px;">${escapeHtml(u.email)}</div>
+      </div>
+    </div>
+    <button class="btn ${u.isPremium ? "btn-danger" : "btn-primary"}" id="admin-toggle-btn">
+      ${u.isPremium ? "Убрать Premium" : "Выдать Premium"}
+    </button>
+  `;
+  document.getElementById("admin-toggle-btn").addEventListener("click", async () => {
+    try {
+      await docRef.set({ isPremium: !u.isPremium }, { merge: true });
+      toast(!u.isPremium ? "Premium выдан" : "Premium снят", "ok");
+      renderAdminResult(docRef, { ...u, isPremium: !u.isPremium });
+    } catch (err) {
+      console.error(err);
+      toast("Не удалось изменить статус: " + err.message, "err");
+    }
+  });
+}
+
+/* ==========================================================================
+   UTILS
+   ========================================================================== */
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str ?? "";
+  return div.innerHTML;
+}
+
+</script>
+</body>
+</html>
